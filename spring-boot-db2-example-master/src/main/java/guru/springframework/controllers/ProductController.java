@@ -1,10 +1,15 @@
 package guru.springframework.controllers;
 
+import static org.assertj.core.api.Assertions.registerCustomDateFormat;
+
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.tomcat.util.codec.binary.Base64;
@@ -18,14 +23,21 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.jcraft.jsch.SftpException;
+
 import guru.springframework.commands.BuzonSFTP;
 import guru.springframework.domain.ConfEnvioObligado;
 import guru.springframework.domain.ConfEnvioObligadoId;
 import guru.springframework.domain.Enviador;
 import guru.springframework.domain.TipoAdjunto;
 import guru.springframework.domain.TipoEnvio;
+import guru.springframework.domain.felecv3.DocumentoFe;
+import guru.springframework.domain.felecv3.DocumentoFeId;
 import guru.springframework.dto.ConfEnvioObliDto;
+import guru.springframework.impl.DocumentoFeImpl;
 import guru.springframework.services.ConfEnvioObligadoServices;
+import guru.springframework.services.DocumentoFeServices;
+import guru.springframework.utils.Archivos;
 
 //import guru.springframework.commands.ProductForm;
 //import guru.springframework.converters.ProductToProductForm;
@@ -50,18 +62,49 @@ public class ProductController{
     @Autowired
     private ConfEnvioObligadoServices confEnvioObligadoService;
 
+    @Autowired
+    private DocumentoFeServices documentoFeServices;
+
     @RequestMapping("/sftp")
-    public void conexion(){
-        BuzonSFTP sftp=new BuzonSFTP("admwas","w4s4dmin","172.24.1.184",22);
+    public void subirArchivo(@RequestParam("id") String idOblig,@RequestParam("nameOblig") String nombreObligado,@RequestParam("ambiente") int ambiente){
+        Archivos archive = new Archivos();
+        archive.crearArchivo(nombreObligado);
+        BuzonSFTP sftp=new BuzonSFTP(ambiente);
+        File plantilla = new File("C:\\Users\\rvillaveces\\Documents\\plantillaComputec.html");
+        File plantillaRechazo = new File("C:\\Users\\rvillaveces\\Documents\\plantillaRechazo.html");
+        try{
+            System.out.println(sftp.getSftp().pwd());
+            sftp.cd("/opt/Apache/DocsMotorEnvios/plantillaEnvioEmail");
+            System.out.println(sftp.getSftp().pwd());
+            try{
+                sftp.getSftp().mkdir(""+idOblig);
+            }
+            catch(Exception e){
+                System.out.println("Ya existe la carpeta");
+            }
+            sftp.cd(""+idOblig);
+            System.out.println(sftp.getSftp().pwd());
+            FileInputStream targetStream1 = new FileInputStream(plantilla);
+            sftp.uploadFile(targetStream1,"plantillaComputec.html");
+            FileInputStream targetStream2 = new FileInputStream(plantillaRechazo);
+            sftp.uploadFile(targetStream2,"plantillaRechazo.html");
+        }
+        catch(FileNotFoundException e){
+            e.printStackTrace();
+        }
+        catch(SftpException e){
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
-    
-    //TODO Escribir archivos de byte[] to file java
+
+    // TODO Escribir archivos de byte[] to file java
 //    for(AdjuntoDTO adjuntoDTO:listAdjunto){
 //        FileUtils.writeByteArrayToFile(new File("C:\\MotorEnvios\\tempA\\"+adjuntoDTO.getNombreArchivo()), adjuntoDTO.getContenido());
 //        System.out.println("nombre : "+adjuntoDTO.getNombreArchivo()+" - Contenido : "+adjuntoDTO.getContenido());
 //    }
 
-    
 //    public String getPlantillaBase(final String rutaPlant) throws FileNotFoundException{
 //        final File html=new File(rutaPlant);
 //        final StringBuilder plantilla=new StringBuilder();
@@ -84,7 +127,7 @@ public class ProductController{
 //        }
 //        return plantilla.toString();
 //    }
-    
+
     @RequestMapping("/archive/base64")
     public String listConf(@RequestParam("ruta") String ruta){
         try{
@@ -95,35 +138,33 @@ public class ProductController{
             return "1";
         }
     }
-    
-    private String encodeFileToBase64Binary(String fileName)
-            throws IOException {
 
-        File file = new File(fileName);
-        byte[] bytes = loadFile(file);
-        byte[] encoded = Base64.encodeBase64(bytes);
-        String encodedString = new String(encoded);
+    private String encodeFileToBase64Binary(String fileName) throws IOException{
+
+        File file=new File(fileName);
+        byte[] bytes=loadFile(file);
+        byte[] encoded=Base64.encodeBase64(bytes);
+        String encodedString=new String(encoded);
 
         return encodedString;
     }
-    
-    private static byte[] loadFile(File file) throws IOException {
-        InputStream is = new FileInputStream(file);
 
-        long length = file.length();
-        if (length > Integer.MAX_VALUE) {
+    private static byte[] loadFile(File file) throws IOException{
+        InputStream is=new FileInputStream(file);
+
+        long length=file.length();
+        if(length>Integer.MAX_VALUE){
             // File is too large
         }
-        byte[] bytes = new byte[(int)length];
-        
-        int offset = 0;
-        int numRead = 0;
-        while (offset < bytes.length
-               && (numRead=is.read(bytes, offset, bytes.length-offset)) >= 0) {
-            offset += numRead;
+        byte[] bytes=new byte[(int)length];
+
+        int offset=0;
+        int numRead=0;
+        while(offset<bytes.length&&(numRead=is.read(bytes,offset,bytes.length-offset))>=0){
+            offset+=numRead;
         }
 
-        if (offset < bytes.length) {
+        if(offset<bytes.length){
             throw new IOException("Could not completely read file "+file.getName());
         }
 
@@ -141,6 +182,7 @@ public class ProductController{
         List<ConfEnvioObligadoId> id=new ArrayList<>();
         try{
             for(ConfEnvioObliDto configuracionesDto:dto){
+                String razonSocial = confEnvioObligadoService.getRazonSocial(configuracionesDto.getIdentificacionObligado());
                 for(int i=1;i<5;i++){
                     try{
                         ConfEnvioObligado conf=getInstanceConfiguracion(ambiente,configuracionesDto,(short)i);
@@ -149,7 +191,7 @@ public class ProductController{
                             System.out.println("Ya existe : "+configuracionesDto.getIdentificacionObligado()+" - "+configuracionesDto.getNumResoluDian()+" - "+i);
                         }
                         else{
-                            conf.setMascara("Factura Electrónica de "+confEnvioObligadoService.getRazonSocial(configuracionesDto.getIdentificacionObligado()));
+                            conf.setMascara("Factura Electrónica de "+razonSocial);
                             ConfEnvioObligado confCreated=confEnvioObligadoService.create(conf);
                             id.add(confCreated.getId());
                         }
@@ -158,6 +200,7 @@ public class ProductController{
                         e.printStackTrace();
                     }
                 }
+                this.subirArchivo(configuracionesDto.getIdentificacionObligado().toString(),razonSocial,ambiente);
             }
             return new ResponseEntity<>(id,HttpStatus.OK);
         }
@@ -188,7 +231,7 @@ public class ProductController{
         conf.setMensajeBaseSms("MENSAJE_BASE_SMS");
         conf.setIncluirLecturabilidad((short)1);
         conf.setEstado((short)1);
-        Short tipoDoc = id.getIdTipoDocFe()!=(short)4?id.getIdTipoDocFe():(short)1; 
+        Short tipoDoc=id.getIdTipoDocFe()!=(short)4?id.getIdTipoDocFe():(short)1;
         switch(ambiente){
             case 1:
                 conf.setRutaPlantilla("C:\\\\MotorEnvios\\\\plantillaComputec.html");
@@ -225,5 +268,21 @@ public class ProductController{
     @RequestMapping(value="/ceo",method=RequestMethod.DELETE,consumes="application/json")
     public void delete(@RequestBody ConfEnvioObligadoId id){
         confEnvioObligadoService.delete(id);
+    }
+
+    @RequestMapping("/fecha")
+    public ResponseEntity<?> getFecha(@RequestParam("io") Long identificacionObligado,@RequestParam("no") String noDocumento,@RequestParam("nu") Long numResoluDian,@RequestParam("it") Short idTipoDocFe){
+//        DocumentoFeId id=new DocumentoFeId(identificacionObligado,noDocumento,numResoluDian,idTipoDocFe);
+//        DocumentoFe doc=documentoFeServices.findById(id);
+        String date =  documentoFeServices.fechaFactura(identificacionObligado,noDocumento,numResoluDian,idTipoDocFe);
+        return new ResponseEntity<>(date,HttpStatus.ACCEPTED);
+    }
+
+    private String formatoFecha(Date fecha){
+        if(fecha==null){
+            return "";
+        }
+        SimpleDateFormat formato=new SimpleDateFormat("dd/MM/yyyy");
+        return formato.format(fecha);
     }
 }

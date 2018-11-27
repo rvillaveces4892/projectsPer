@@ -22,7 +22,6 @@ import java.util.zip.ZipInputStream;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.log4j.Logger;
 
-
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.ChannelSftp;
@@ -33,7 +32,6 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpATTRS;
 import com.jcraft.jsch.SftpException;
 
-
 /**
  * Nombre de clase = Sftp Descripci�n = Clase encarga de gestionar transacciones por el protocolo sftp
  * 
@@ -42,7 +40,7 @@ import com.jcraft.jsch.SftpException;
 public class BuzonSFTP{
 
     private static Logger LOG=Logger.getLogger(BuzonSFTP.class);
-    
+
     private static final String ROUTE_TMP_WIN=System.getProperty("os.name").equals("Windows 7")?"C:/tmp":"";
 
     /**
@@ -72,6 +70,36 @@ public class BuzonSFTP{
         boolean conexion=conectar();
         System.out.println("Conecto ? "+conexion);
 //        LOG.info("conectado ? "+(conexion?"si":"no"));
+    }
+
+    public BuzonSFTP(int ambiente){
+
+        switch(ambiente){
+            case 1:
+                this.host="";
+                this.password="";
+                this.user="";
+                this.port=0;
+                break;
+            case 2:
+                this.host="172.24.1.184";
+                this.user="admwas";
+                this.password="w4s4dmin";
+                this.port=22;
+                break;
+            case 3:
+                this.host="172.25.13.40";
+                this.password="w4s4dm1n$$";
+                this.user="wasadmin";
+                this.port=22;
+                break;
+
+            default:
+                break;
+        }
+       
+        boolean conexion=conectar();
+        System.out.println("Conecto ? "+conexion);
     }
 
     // ---------------------------------------------------------------------
@@ -555,6 +583,14 @@ public class BuzonSFTP{
             hexString.append(hex);
         }
         return hexString.toString();
+    }
+
+    public ChannelSftp getSftp(){
+        return sftp;
+    }
+
+    public void setSftp(ChannelSftp sftp){
+        this.sftp=sftp;
     }
 
 }
