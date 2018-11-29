@@ -200,7 +200,9 @@ public class ProductController{
                         e.printStackTrace();
                     }
                 }
-                this.subirArchivo(configuracionesDto.getIdentificacionObligado().toString(),razonSocial,ambiente);
+                if(configuracionesDto.getIdentificacionObligado()!=null&&configuracionesDto.getIdentificacionObligado()!=9004226148L) {
+                    this.subirArchivo(configuracionesDto.getIdentificacionObligado().toString(),razonSocial,ambiente);
+                }
             }
             return new ResponseEntity<>(id,HttpStatus.OK);
         }
